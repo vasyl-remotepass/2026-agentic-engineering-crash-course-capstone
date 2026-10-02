@@ -75,6 +75,8 @@ def cmd_report(args, now):
             raise TTError("usage: tt report [--date YYYY-MM-DD]")
         try:
             day = date.fromisoformat(args[1])
+            if day.isoformat() != args[1]:  # 3.11+ приймає й 20261002, 2026-W40-5
+                raise ValueError
         except ValueError:
             raise TTError(f"invalid date: {args[1]} (expected YYYY-MM-DD)")
     totals = defaultdict(timedelta)
