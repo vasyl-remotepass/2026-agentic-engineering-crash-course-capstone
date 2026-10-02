@@ -135,9 +135,69 @@ class TTTest(unittest.TestCase):
             self.assertEqual(f.read(), "{not json")
 
 
+    # --- з рев'ю (review.md), зміни spec після рев'ю ---
+
+    def test_failed_write_keeps_old_file(self):  # знахідка 1
+        self.run_tt("start", "docs")
+        self.run_tt("stop", now=T0 + timedelta(minutes=5))
+        with open(self.path) as f:
+            before = f.read()
+
+        def broken_dump(obj, fp, **kw):
+            fp.write('{"entries": [')
+            raise OSError(28, "No space left on device")
+
+        with mock.patch("json.dump", broken_dump), mock.patch("json.dumps", side_effect=OSError(28, "No space")):
+            code, _, err = self.run_tt("start", "next", now=T0 + timedelta(minutes=10))
+        self.assertEqual(code, 1)
+        self.assertNotEqual(err, "")
+        with open(self.path) as f:
+            self.assertEqual(f.read(), before)
+        self.assertEqual(os.listdir(os.path.dirname(self.path)), ["tt.json"])  # без сміття від tmp
+
+    def test_bad_structure_is_error_and_not_changed(self):  # знахідки 2, 3
+        ok = lambda **kw: {"task": "x", "start": "2026-10-02T09:00:00", "end": None, **kw}
+        bad = [
+            {"entries": 5}, {"entries": None}, {"entries": {}}, {"entries": "abc"}, {"entries": [1]},
+            {"entries": [{"task": "x"}]},
+            {"entries": [ok(task=5)]},
+            {"entries": [ok(start="oops")]},
+            {"entries": [ok(end="oops")]},
+            {"entries": [ok(start="2026-10-02T09:00:00+03:00")]},
+        ]
+        for data in bad:
+            raw = json.dumps(data)
+            for argv in (["start", "docs"], ["stop"], ["status"], ["report"]):
+                with open(self.path, "w") as f:
+                    f.write(raw)
+                code, _, err = self.run_tt(*argv)
+                self.assertEqual(code, 1, (raw, argv))
+                self.assertIn("corrupted", err, (raw, argv))
+                with open(self.path) as f:
+                    self.assertEqual(f.read(), raw, (raw, argv))
+
+    def test_os_errors_are_reported_not_raised(self):  # знахідка 5
+        with mock.patch.dict(os.environ, {"TT_FILE": os.path.dirname(self.path)}):
+            code, _, err = self.run_tt("status")
+        self.assertEqual(code, 1)
+        self.assertNotEqual(err, "")
+
+        self.run_tt("start", "docs")
+        self.run_tt("stop", now=T0 + timedelta(minutes=5))
+        os.chmod(self.path, 0o444)
+        self.addCleanup(os.chmod, self.path, 0o644)
+        code, _, err = self.run_tt("start", "next")
+        self.assertEqual(code, 1)
+        self.assertNotEqual(err, "")
+
+    def test_clock_moved_back_shows_zero(self):  # знахідка 4
+        self.run_tt("start", "docs")
+        self.assertEqual(self.run_tt("status", now=T0 - timedelta(minutes=30)), (0, "▶ docs — 0m", ""))
+
+
 class FormatTest(unittest.TestCase):  # правило 6
     def test_format_duration(self):
-        cases = {0: "0m", 59: "0m", 60: "1m", 59 * 60: "59m", 3600: "1h 00m", 3900: "1h 05m", 10 * 3600: "10h 00m"}
+        cases = {-30: "0m", -3600: "0m", 0: "0m", 59: "0m", 60: "1m", 59 * 60: "59m", 3600: "1h 00m", 3900: "1h 05m", 10 * 3600: "10h 00m"}
         for seconds, expected in cases.items():
             self.assertEqual(tt.fmt(timedelta(seconds=seconds)), expected, seconds)
 
