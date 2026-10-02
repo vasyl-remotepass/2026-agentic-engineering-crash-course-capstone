@@ -1,0 +1,28 @@
+[18:29:35] iter 1: RED — FAILED (failures=2, errors=3)
+All 18 tests now pass. The only file I changed is `tt.py`, and the tests themselves are untouched.
+
+```
+Ran 18 tests in 0.010s
+
+OK
+```
+
+Here's what changed in `tt.py`, matched to the review findings recorded in the spec:
+
+| Finding | Fix |
+|---|---|
+| 1. Safe save | `save()` writes to `tt.json.tmp` first, then swaps it in with `os.replace`. If the write fails, the temp file is deleted and the old file stays exactly as it was. |
+| 2, 3. Bad file structure | `load()` checks the file before anything is written: `entries` must be a list, each entry has exactly `task`, `start` and `end`, `task` is a string, and dates must be valid with no timezone. Anything else gives `corrupted data file`. |
+| 5. Operating-system errors | When reading or writing hits an operating-system error (for example `TT_FILE` points to a folder, or there's no permission), the user sees `error: cannot read/write …` and exit code 1 instead of a traceback. |
+| 4. Negative duration | `fmt()` treats any negative time as zero, so it shows `0m`. |
+
+`★ Insight ─────────────────────────────────────`
+- **Safe save needed an extra check.** `os.replace` only needs write permission on the folder, not on the file. On its own it would quietly overwrite a file marked read-only, and `test_os_errors_are_reported_not_raised` expects an error in that case. So `save()` first checks `os.access(p, os.W_OK)`. The spec doesn't spell this out; the test made me choose, and it follows rule 7 (OS errors are reported as errors).
+- **Order of `except` clauses matters.** `FileNotFoundError` is a kind of `OSError`, so it has to be caught first. That keeps "no file" meaning an empty log, while every other OS error becomes a reported error.
+- **My first attempt silently did nothing.** `cat` went through the rtk proxy, which strips blank lines from the output. The text I tried to match didn't exist in the real file, so nothing changed. When matching code exactly, read the file with Read, not filtered `cat` output.
+`─────────────────────────────────────────────────`
+
+---
+✅ Fix: `tt.py` now saves safely, checks file structure, reports OS errors and shows negative time as `0m`. 18/18 tests pass.
+Not committed (`tt.py` has uncommitted changes)
+[18:30:32] GREEN після 1 ітерацій агента — OK
