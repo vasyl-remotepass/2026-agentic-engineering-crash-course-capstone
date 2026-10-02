@@ -114,9 +114,10 @@ class TTTest(unittest.TestCase):
         self.assertEqual(self.report_lines(now=T0), [["total", "0m"]])
 
     def test_report_bad_date_is_error(self):
-        code, _, err = self.run_tt("report", "--date", "02.10.2026")
-        self.assertEqual(code, 1)
-        self.assertNotEqual(err, "")
+        for bad in ("02.10.2026", "20261002", "2026-W40-5"):  # компактні ISO-форми — зміна spec №2
+            code, _, err = self.run_tt("report", "--date", bad)
+            self.assertEqual(code, 1, bad)
+            self.assertNotEqual(err, "", bad)
 
     # --- дані ---
 
