@@ -1,0 +1,11 @@
+[14:59:29] iter 1: RED — FAILED (errors=1)
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+[14:59:31] iter 2: RED — FAILED (errors=1)
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+[14:59:32] iter 3: RED — FAILED (errors=1)
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+[14:59:33] iter 4: RED — FAILED (errors=1)
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+[14:59:34] iter 5: RED — FAILED (errors=1)
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+[14:59:35] STOP: 5 ітерацій, досі червоно
